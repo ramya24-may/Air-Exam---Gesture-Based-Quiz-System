@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Air Exam — Gesture Quiz</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0f172a;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e293b;
+      padding: 16px 32px;
+      border-bottom: 2px solid #2563eb;
+    }
+    header h1 { color: #60a5fa; font-size: 1.4rem; }
+
+    .container {
+      display: flex;
+      gap: 24px;
+      padding: 24px 32px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .cam-box { display: flex; flex-direction: column; align-items: center; }
+    .cam-box img {
+      width: 500px;
+      border-radius: 12px;
+      border: 3px solid #2563eb;
+    }
+    .cam-hint { margin-top: 8px; font-size: 0.82rem; color: #94a3b8; }
+
+    .panel {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 28px;
+      width: 360px;
+      min-height: 440px;
+    }
+
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+      color: #94a3b8;
+    }
+    .timer { font-size: 1.3rem; font-weight: bold; color: #34d399; }
+
+    .question {
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: #e2e8f0;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .opt {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 9px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.95rem;
+    }
+    .key { color: #60a5fa; font-weight: bold; font-size: 0.82rem; min-width: 76px; }
+
+    .feedback {
+      font-size: 1.35rem;
+      font-weight: bold;
+      min-height: 40px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .score-live { text-align: center; color: #94a3b8; font-size: 0.9rem; }
+
+    .result-title  { color: #34d399; font-size: 1.5rem; text-align: center; margin-bottom: 10px; }
+    .result-score  { text-align: center; font-size: 1rem; color: #e2e8f0; margin-bottom: 18px; }
+
+    .review-item {
+      padding: 9px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+    .review-item.correct { background: #14532d; border-left: 4px solid #34d399; }
+    .review-item.wrong   { background: #450a0a; border-left: 4px solid #f87171; }
+    .review-item.skipped { background: #164e63; border-left: 4px solid #67e8f9; }
+    .your-ans    { color: #fbbf24; }
+    .correct-ans { color: #86efac; }
+
+    .retry-btn {
+      display: block;
+      margin: 18px auto 0;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 26px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .retry-btn:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1> Air Exam — Gesture Based Quiz System</h1>
+  </header>
+
+  <div class="container">
+
+    <!-- Left: webcam stream -->
+    <div class="cam-box">
+      <img src="{{ url_for('video') }}" alt="Webcam feed">
+      <p class="cam-hint">Show 1–4 fingers and hold 2 seconds to answer &nbsp;|&nbsp; 5 fingers = Skip</p>
+    </div>
+
+    <!-- Right: quiz panel -->
+    <div class="panel">
+
+      <!-- Quiz view -->
+      <div id="quiz-view">
+        <div class="progress-row">
+          <span id="q-label">Q 1 of 3</span>
+          <span id="timer" class="timer">15s</span>
+        </div>
+        <div id="question" class="question">Loading...</div>
+        <div class="options">
+          <div class="opt"><span class="key">1 finger = A</span><span id="oa"></span></div>
+          <div class="opt"><span class="key">2 fingers = B</span><span id="ob"></span></div>
+          <div class="opt"><span class="key">3 fingers = C</span><span id="oc"></span></div>
+          <div class="opt"><span class="key">4 fingers = D</span><span id="od"></span></div>
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <div id="score-live" class="score-live">Score: 0</div>
+      </div>
+
+      <!-- Result view -->
+      <div id="result-view" style="display:none;">
+        <h2 class="result-title"> Quiz Complete!</h2>
+        <p id="result-score" class="result-score"></p>
+        <div id="review-list"></div>
+        <button class="retry-btn" onclick="location.reload()"> Try Again</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    async function poll() {
+      try {
+        const res  = await fetch('/status');
+        const data = await res.json();
+
+        if (data.done) {
+          document.getElementById('quiz-view').style.display   = 'none';
+          document.getElementById('result-view').style.display = 'block';
+          document.getElementById('result-score').textContent  =
+            `Score: ${data.score} / ${data.total}   —   Accuracy: ${data.accuracy}%`;
+
+          const list = document.getElementById('review-list');
+          list.innerHTML = '';
+          data.review.forEach((r, i) => {
+            const div     = document.createElement('div');
+            div.className = 'review-item ' + r.status;
+            div.innerHTML =
+              `<b>Q${i + 1}:</b> ${r.q}<br>` +
+              `<span class="your-ans">Your answer: ${r.your_ans}</span><br>` +
+              `<span class="correct-ans">Correct: ${r.correct_ans}</span>`;
+            list.appendChild(div);
+          });
+          return;
+        }
+
+        document.getElementById('question').textContent    = data.question;
+        document.getElementById('oa').textContent          = data.option_a;
+        document.getElementById('ob').textContent          = data.option_b;
+        document.getElementById('oc').textContent          = data.option_c;
+        document.getElementById('od').textContent          = data.option_d;
+        document.getElementById('q-label').textContent    = `Q ${data.q_num} of ${data.total}`;
+        document.getElementById('score-live').textContent = `Score: ${data.score}`;
+
+        const timerEl       = document.getElementById('timer');
+        timerEl.textContent = `${data.remaining}s`;
+        timerEl.style.color = data.remaining <= 5 ? '#f87171' : '#34d399';
+
+        const fb       = document.getElementById('feedback');
+        fb.textContent = data.feedback;
+        if      (data.fb_color === 'green') fb.style.color = '#34d399';
+        else if (data.fb_color === 'red')   fb.style.color = '#f87171';
+        else                                fb.style.color = '#67e8f9';
+
+        setTimeout(poll, 500);
+
+      } catch (e) {
+        setTimeout(poll, 1000);
+      }
+    }
+
+    poll();
+  </script>
+
+</body>
+</html>
