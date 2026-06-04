@@ -25,13 +25,13 @@ Traditional examination systems rely entirely on keyboards and mice, which creat
 - MJPEG via Flask Response
   
 ## How to Use
--Run python app.py and open the browser
--Show your hand to the webcam
--Read the question on the right panel
--Show 1, 2, 3, or 4 fingers for options A, B, C, D
--Hold the gesture steady for 2 seconds to confirm
--Show 5 fingers to skip a question
--View your score and detailed review at the end 
+- Run python app.py and open the browser
+- Show your hand to the webcam
+- Read the question on the right panel
+- Show 1, 2, 3, or 4 fingers for options A, B, C, D
+- Hold the gesture steady for 2 seconds to confirm
+- Show 5 fingers to skip a question
+- View your score and detailed review at the end 
 
 ## Research Gap This Project Addresses
 Most existing gesture projects (Air Canvas, Air MNIST, Virtual Mouse) are single-feature demos with no real-world use case. Air Exam is different:
